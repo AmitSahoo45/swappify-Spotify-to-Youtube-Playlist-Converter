@@ -1,19 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 
-import { CLIENT_ID, CLIENT_SECRET, REDIRECT_URL, SCOPES, HOSTED_URL } from '@/app/constants'
+import { getErrorMessage } from "@/app/lib/errors";
+import { getGoogleOAuthConfig } from "@/app/lib/server-config";
+
+export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
+  const { clientId, clientSecret, redirectUrl, scopes, hostedUrl } = getGoogleOAuthConfig(request);
 
   const code = searchParams.get("code"),
-    oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URL);
+    oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUrl);
 
   if (!code) {
     const url = oauth2Client.generateAuthUrl({
       access_type: "offline",
-      scope: SCOPES as string[],
-      redirect_uri: REDIRECT_URL,
+      scope: scopes,
+      redirect_uri: redirectUrl,
       prompt: "consent",
     });
 
@@ -21,19 +25,20 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { tokens } = await oauth2Client.getToken({ code, redirect_uri: REDIRECT_URL });
+    const { tokens } = await oauth2Client.getToken({ code, redirect_uri: redirectUrl });
     oauth2Client.setCredentials(tokens);
 
-    const response = NextResponse.redirect(HOSTED_URL);
+    const response = NextResponse.redirect(hostedUrl);
     response.cookies.set("youtube_token", JSON.stringify(tokens), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       path: "/",
+      sameSite: "lax",
     });
 
     return response;
-  } catch (err: any) {
-    console.error(err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

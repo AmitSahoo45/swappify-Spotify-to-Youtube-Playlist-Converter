@@ -1,11 +1,29 @@
 import { Playlist } from "@/app/types/playlist";
+import { getErrorMessage } from "@/app/lib/errors";
+import { getSpotifyConfig } from "@/app/lib/server-config";
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 import querystring from "node:querystring";
 
-declare global {
-    var __SPOTIFY_TRACKS__: { trackName: string; artistName: string }[];
+interface SpotifyPlaylistItem {
+    track?: {
+        name?: string;
+        artists?: Array<{ name?: string }>;
+    };
 }
+
+interface SpotifyPlaylistResponse {
+    name: string;
+    description: string;
+    owner: {
+        display_name: string;
+    };
+    tracks: {
+        items: SpotifyPlaylistItem[];
+    };
+}
+
+export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
     try {
@@ -25,8 +43,7 @@ export async function POST(request: NextRequest) {
         }
 
 
-        const clientId = process.env.NEXT_PUBLIC_CLIENT_ID,
-            clientSecret = process.env.NEXT_PUBLIC_CLIENT_SECRET;
+        const { clientId, clientSecret } = getSpotifyConfig();
 
         const tokenData = querystring.stringify({
             grant_type: "client_credentials",
@@ -38,9 +55,8 @@ export async function POST(request: NextRequest) {
 
         accessToken = data.access_token;
 
-        const { data: playlistData } = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, { headers: { Authorization: `Bearer ${accessToken}` } });
-        console.log(playlistData)
-        const tracks = (playlistData.tracks.items || []).map((item: any) => {
+        const { data: playlistData } = await axios.get<SpotifyPlaylistResponse>(`https://api.spotify.com/v1/playlists/${playlistId}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+        const tracks = (playlistData.tracks.items || []).map((item: SpotifyPlaylistItem) => {
             const trackName = item.track?.name || "";
             const artistName = item.track?.artists?.[0]?.name || "Unknown Artist";
             return { trackName, artistName };
@@ -53,11 +69,9 @@ export async function POST(request: NextRequest) {
             tracks
         }
 
-        globalThis["__SPOTIFY_TRACKS__"] = tracks;
-
         return NextResponse.json({ success: true, playlist });
-    } catch (err: any) {
-        console.error(err);
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (error) {
+        console.error(error);
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
     }
 }

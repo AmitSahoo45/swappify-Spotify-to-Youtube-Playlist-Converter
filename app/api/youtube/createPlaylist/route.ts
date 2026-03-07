@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { Playlist, Track } from "@/app/types/playlist";
+import { getErrorMessage } from "@/app/lib/errors";
+
+export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
     try {
-        const { playlist: { name, description, ownerName, tracks } } = (await request.json()) as { playlist: Playlist };
+        const { playlist: { name, description, tracks } } = (await request.json()) as { playlist: Playlist };
         const tokenCookie = request.cookies.get("youtube_token")?.value;
 
         if (!tokenCookie)
@@ -73,8 +76,8 @@ export async function POST(request: NextRequest) {
             totalTracks: tracks.length,
             failedTracks,
         });
-    } catch (err: any) {
-        console.error(err);
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (error) {
+        console.error(error);
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
     }
 }
