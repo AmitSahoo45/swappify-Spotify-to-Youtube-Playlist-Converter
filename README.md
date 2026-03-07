@@ -53,7 +53,7 @@ Required environment variables:
 1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
 2. Create an app or open your existing app.
 3. Copy the client ID and client secret into your environment file.
-4. No Spotify redirect URL is currently required because Spotify access is fetched using the client credentials flow for playlist reads.
+4. No Spotify redirect URL is required because the app uses the client credentials flow to read public playlist data.
 
 ### 4. Configure Google / YouTube OAuth
 

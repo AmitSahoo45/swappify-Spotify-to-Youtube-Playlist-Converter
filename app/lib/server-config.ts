@@ -23,8 +23,8 @@ function getBaseUrl(request?: NextRequest) {
 
 export function getSpotifyConfig() {
   return {
-    clientId: getRequiredEnv("SPOTIFY_CLIENT_ID", "NEXT_PUBLIC_CLIENT_ID"),
-    clientSecret: getRequiredEnv("SPOTIFY_CLIENT_SECRET", "NEXT_PUBLIC_CLIENT_SECRET"),
+    clientId: getRequiredEnv("SPOTIFY_CLIENT_ID"),
+    clientSecret: getRequiredEnv("SPOTIFY_CLIENT_SECRET"),
   };
 }
 
@@ -32,11 +32,12 @@ export function getGoogleOAuthConfig(request: NextRequest) {
   const hostedUrl = getBaseUrl(request);
 
   return {
-    clientId: getRequiredEnv("GOOGLE_CLIENT_ID", "NEXT_PUBLIC_GOOGLE_CLIENT_ID"),
-    clientSecret: getRequiredEnv("GOOGLE_CLIENT_SECRET", "NEXT_PUBLIC_GOOGLE_CLIENT_SECRET"),
+    clientId: getRequiredEnv("GOOGLE_CLIENT_ID"),
+    clientSecret: getRequiredEnv("GOOGLE_CLIENT_SECRET"),
     redirectUrl: readEnv("GOOGLE_REDIRECT_URL") || `${hostedUrl}/api/auth/youtube`,
-    scopes: getRequiredEnv("GOOGLE_YOUTUBE_SCOPES", "NEXT_PUBLIC_GOOGLE_YOUTUBE_SCOPES")
+    scopes: getRequiredEnv("GOOGLE_YOUTUBE_SCOPES")
       .split(/[,\s]+/)
+      .map((scope) => scope.trim())
       .filter(Boolean),
     hostedUrl,
   };
