@@ -1,15 +1,22 @@
 "use client";
 
 import axios from "axios";
+import { getErrorMessage } from "@/app/lib/errors";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Playlist } from "../types/playlist";
+
+interface ConversionResult {
+    youtubePlaylistId: string;
+    totalTracks: number;
+    failedTracks: Playlist["tracks"];
+}
 
 const Dashboard = () => {
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
     const [spotifyUrl, setSpotifyUrl] = useState<string>("");
     const [playlist, setPlaylist] = useState<Playlist>({ name: "", description: "", ownerName: "", tracks: [] });
-    const [conversionResult, setConversionResult] = useState<any>(null);
+    const [conversionResult, setConversionResult] = useState<ConversionResult | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState("");
 
@@ -23,7 +30,7 @@ const Dashboard = () => {
         try {
             const { data: { isAuthenticated: _isAuthenticated } } = await axios.get("/api/auth/status");
             setIsAuthenticated(_isAuthenticated);
-        } catch (err) {
+        } catch {
             setIsAuthenticated(false);
         }
     }
@@ -37,10 +44,9 @@ const Dashboard = () => {
 
             const { data: { playlist: _playlist } } = await axios.post("/api/parseSpotify", { spotifyUrl });
             setPlaylist(_playlist);
-            console.log(_playlist)
             setLoading(false);
-        } catch (err: any) {
-            setError(err.message);
+        } catch (error) {
+            setError(getErrorMessage(error));
             setLoading(false);
         }
     };
@@ -53,8 +59,8 @@ const Dashboard = () => {
             const { data } = await axios.post("/api/youtube/createPlaylist", { playlist });
             setConversionResult(data);
             setLoading(false);
-        } catch (err: any) {
-            setError(err.message);
+        } catch (error) {
+            setError(getErrorMessage(error));
             setLoading(false);
         }
     };
@@ -63,8 +69,8 @@ const Dashboard = () => {
         try {
             router.push("/api/auth/logout");
             setIsAuthenticated(false);
-        } catch (err: any) {
-            console.error(err);
+        } catch (error) {
+            console.error(error);
         }
     }
 
