@@ -70,7 +70,7 @@ const Dashboard = () => {
             router.push("/api/auth/logout");
             setIsAuthenticated(false);
         } catch (error) {
-            console.error(error);
+            setError(getErrorMessage(error));
         }
     }
 

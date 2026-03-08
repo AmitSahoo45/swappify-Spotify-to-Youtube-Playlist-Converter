@@ -107,6 +107,7 @@ npm run dev
 npm run build
 npm run start
 npm run lint
+npm run test
 ```
 
 Node.js `18.18.0` or newer is required.
@@ -140,8 +141,8 @@ Phase 1:
 
 Next improvements:
 
-- [ ] Better track matching heuristics
+- [x] Better track matching heuristics
 - [ ] Conversion progress UI
 - [ ] Retry / manual rematch flow
-- [ ] Automated tests for matching logic
-- [ ] CI for lint and build
+- [x] Automated tests for matching logic
+- [x] CI for lint and build

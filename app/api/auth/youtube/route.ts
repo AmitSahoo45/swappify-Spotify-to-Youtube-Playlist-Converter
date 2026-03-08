@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 
 import { getErrorMessage } from "@/app/lib/errors";
+import { logError } from "@/app/lib/logger";
 import { getGoogleOAuthConfig } from "@/app/lib/server-config";
 
 export const runtime = "nodejs";
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error(error);
+    logError("Failed to complete YouTube OAuth flow", error);
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
