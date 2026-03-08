@@ -20,6 +20,7 @@ const parseSpotifyRequestSchema = z.object({
 
 const createPlaylistRequestSchema = z.object({
   playlist: playlistSchema,
+  youtubePlaylistId: z.string().trim().min(1, "YouTube playlist id is required").optional(),
 });
 
 const youtubeTokenSchema = z
@@ -49,7 +50,7 @@ export function parseSpotifyRequest(payload: unknown) {
   return result.data;
 }
 
-export function parseCreatePlaylistRequest(payload: unknown): { playlist: Playlist } {
+export function parseCreatePlaylistRequest(payload: unknown): { playlist: Playlist; youtubePlaylistId?: string } {
   const result = createPlaylistRequestSchema.safeParse(payload);
 
   if (!result.success) {

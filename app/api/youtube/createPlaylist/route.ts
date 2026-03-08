@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
-import { Track } from "@/app/types/playlist";
+import { FailedTrackResult, MatchedTrackResult } from "@/app/types/conversion";
 import { getErrorMessage, RequestValidationError } from "@/app/lib/errors";
 import { logError, logInfo, logWarn } from "@/app/lib/logger";
 import { parseCreatePlaylistRequest, parseYoutubeTokens } from "@/app/lib/validation";
@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
     try {
         const {
             playlist: { name, description, tracks },
+            youtubePlaylistId,
         } = parseCreatePlaylistRequest(await request.json());
         const tokens = parseYoutubeTokens(request.cookies.get("youtube_token")?.value);
 
@@ -24,36 +25,48 @@ export async function POST(request: NextRequest) {
 
         const youtube = google.youtube("v3");
 
-        logInfo("Creating YouTube playlist", {
-            playlistName: name,
-            trackCount: tracks.length,
-        });
+        let targetPlaylistId = youtubePlaylistId;
 
-        const { data: playlistCreation } = await youtube.playlists.insert({
-            auth: oauth2Client,
-            part: ["snippet", "status"],
-            requestBody: {
-                snippet: {
-                    title: name,
-                    description,
+        if (!targetPlaylistId) {
+            logInfo("Creating YouTube playlist", {
+                playlistName: name,
+                trackCount: tracks.length,
+            });
+
+            const { data: playlistCreation } = await youtube.playlists.insert({
+                auth: oauth2Client,
+                part: ["snippet", "status"],
+                requestBody: {
+                    snippet: {
+                        title: name,
+                        description,
+                    },
+                    status: { privacyStatus: "private" },
                 },
-                status: { privacyStatus: "private" },
-            },
-        });
+            });
 
-        const newPlaylistId = playlistCreation.id;
+            targetPlaylistId = playlistCreation.id ?? undefined;
 
-        if (!newPlaylistId) {
-            throw new Error("YouTube playlist creation did not return an id");
+            if (!targetPlaylistId) {
+                throw new Error("YouTube playlist creation did not return an id");
+            }
+        } else {
+            logInfo("Retrying failed tracks in existing YouTube playlist", {
+                youtubePlaylistId,
+                trackCount: tracks.length,
+            });
         }
 
-        const failedTracks: Track[] = [];
+        const failedTracks: FailedTrackResult[] = [];
+        const matchedTracks: MatchedTrackResult[] = [];
 
         for (const track of tracks) {
+            const attemptedQueries = buildYoutubeSearchQueries(track);
+
             try {
                 const candidates = new Map<string, YoutubeVideoCandidate>();
 
-                for (const query of buildYoutubeSearchQueries(track)) {
+                for (const query of attemptedQueries) {
                     const searchRes = await youtube.search.list({
                         auth: oauth2Client,
                         part: ["snippet"],
@@ -79,14 +92,19 @@ export async function POST(request: NextRequest) {
 
                 }
 
-                const videoId = selectBestYoutubeCandidate(track, Array.from(candidates.values()))?.videoId;
+                const bestCandidate = selectBestYoutubeCandidate(track, Array.from(candidates.values()));
+                const videoId = bestCandidate?.videoId;
 
                 if (!videoId) {
                     logWarn("No YouTube match found for track", {
                         trackName: track.trackName,
                         artistName: track.artistName,
                     });
-                    failedTracks.push(track);
+                    failedTracks.push({
+                        track,
+                        attemptedQueries,
+                        reason: "No suitable YouTube match found.",
+                    });
                     continue;
                 }
 
@@ -95,30 +113,44 @@ export async function POST(request: NextRequest) {
                     part: ["snippet"],
                     requestBody: {
                         snippet: {
-                            playlistId: newPlaylistId,
+                            playlistId: targetPlaylistId,
                             resourceId: { kind: "youtube#video", videoId },
                         },
                     },
+                });
+
+                matchedTracks.push({
+                    track,
+                    videoId,
+                    youtubeTitle: bestCandidate?.title || "",
                 });
             } catch {
                 logWarn("Failed to add track to YouTube playlist", {
                     trackName: track.trackName,
                     artistName: track.artistName,
                 });
-                failedTracks.push(track);
+                failedTracks.push({
+                    track,
+                    attemptedQueries,
+                    reason: "Failed to add this track to the YouTube playlist.",
+                });
             }
         }
 
         logInfo("YouTube playlist created", {
-            youtubePlaylistId: newPlaylistId,
+            youtubePlaylistId: targetPlaylistId,
             totalTracks: tracks.length,
             failedTracks: failedTracks.length,
         });
 
         return NextResponse.json({
             success: true,
-            youtubePlaylistId: newPlaylistId,
+            youtubePlaylistId: targetPlaylistId,
+            youtubePlaylistUrl: `https://www.youtube.com/playlist?list=${targetPlaylistId}`,
             totalTracks: tracks.length,
+            matchedCount: matchedTracks.length,
+            failedCount: failedTracks.length,
+            matchedTracks,
             failedTracks,
         });
     } catch (error) {

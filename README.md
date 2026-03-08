@@ -142,7 +142,7 @@ Phase 1:
 Next improvements:
 
 - [x] Better track matching heuristics
-- [ ] Conversion progress UI
-- [ ] Retry / manual rematch flow
+- [x] Conversion progress UI
+- [x] Retry / manual rematch flow
 - [x] Automated tests for matching logic
 - [x] CI for lint and build
