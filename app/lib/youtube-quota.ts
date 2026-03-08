@@ -50,12 +50,12 @@ export function isYoutubeQuotaError(error: unknown) {
   const reasons = [
     ...(candidate?.errors ?? []).map((entry) => entry.reason),
     ...(candidate?.response?.data?.error?.errors ?? []).map((entry) => entry.reason),
-  ].filter(Boolean);
+  ].filter((reason): reason is string => typeof reason === "string");
 
   return (
     candidate?.code === 403 ||
     candidate?.response?.status === 403 ||
-    reasons.some((reason) => youtubeQuotaErrorReasons.has(reason ?? ""))
+    reasons.some((reason) => youtubeQuotaErrorReasons.has(reason))
   );
 }
 
