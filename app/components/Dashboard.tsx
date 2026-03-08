@@ -441,7 +441,7 @@ const Dashboard = () => {
                     className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-sky-400/40 focus:ring-2 focus:ring-sky-400/20"
                   />
                     <p id="spotify-playlist-url-help" className="text-xs leading-5 text-slate-400">
-                      Paste any public Spotify playlist link, then press Enter or use the parse button.
+                      Paste any public Spotify playlist link. Press Enter to submit or use the Parse button.
                     </p>
                   </div>
                   <button
@@ -455,7 +455,7 @@ const Dashboard = () => {
                 </form>
               </div>
 
-              <div aria-live="polite" className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+              <div aria-live="polite" aria-atomic="true" className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
                 <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">Conversion status</h3>
                 <div className="mt-4 space-y-3 text-sm text-slate-300">
                   <div className="flex items-center justify-between">
@@ -752,6 +752,7 @@ const Dashboard = () => {
               <button
                 type="button"
                 onClick={() => setError("")}
+                aria-label="Dismiss error notification"
                 className="rounded-full border border-red-400/20 px-3 py-1 text-xs font-medium text-red-100 transition hover:bg-red-400/10 focus:outline-none focus:ring-2 focus:ring-red-300/40"
               >
                 Dismiss
