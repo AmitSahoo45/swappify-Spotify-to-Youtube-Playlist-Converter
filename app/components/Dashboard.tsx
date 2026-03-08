@@ -3,6 +3,7 @@
 import axios from "axios";
 import { mergeRetryConversionResult } from "@/app/lib/conversion-results";
 import { getErrorMessage } from "@/app/lib/errors";
+import { estimateYoutubeQuotaUsage, YOUTUBE_DAILY_QUOTA_LIMIT } from "@/app/lib/youtube-quota";
 import { PlaylistConversionResult } from "@/app/types/conversion";
 import { Playlist, Track } from "@/app/types/playlist";
 import { useRouter } from "next/navigation";
@@ -10,6 +11,10 @@ import { useEffect, useState } from "react";
 
 type LoadingState = "parsing" | "converting" | "retrying" | null;
 type StepState = "complete" | "current" | "upcoming";
+type AuthStatusResponse = {
+  isAuthenticated: boolean;
+  expiresSoon: boolean;
+};
 
 const emptyPlaylist: Playlist = { name: "", description: "", ownerName: "", tracks: [] };
 const buttonClassName =
@@ -84,8 +89,15 @@ const Dashboard = () => {
   const [conversionResult, setConversionResult] = useState<PlaylistConversionResult | null>(null);
   const [loadingState, setLoadingState] = useState<LoadingState>(null);
   const [error, setError] = useState("");
+  const [isSessionExpiringSoon, setIsSessionExpiringSoon] = useState(false);
 
   const router = useRouter();
+
+  const conversionQuotaEstimate = estimateYoutubeQuotaUsage(playlist.tracks);
+  const retryQuotaEstimate = estimateYoutubeQuotaUsage(
+    conversionResult?.failedTracks.map(({ track }) => track) || [],
+    { includePlaylistCreation: false }
+  );
 
   useEffect(() => {
     checkAuthStatus();
@@ -93,12 +105,13 @@ const Dashboard = () => {
 
   const checkAuthStatus = async () => {
     try {
-      const {
-        data: { isAuthenticated: authenticated },
-      } = await axios.get("/api/auth/status");
+      const { data } = await axios.get<AuthStatusResponse>("/api/auth/status");
+      const authenticated = data.isAuthenticated;
       setIsAuthenticated(authenticated);
+      setIsSessionExpiringSoon(authenticated && data.expiresSoon);
     } catch {
       setIsAuthenticated(false);
+      setIsSessionExpiringSoon(false);
     }
   };
 
@@ -318,6 +331,20 @@ const Dashboard = () => {
                       {loadingState === "converting" ? "Running" : conversionResult ? "Finished" : "Not started"}
                     </span>
                   </div>
+                  <div className="flex items-center justify-between">
+                    <span>Estimated quota</span>
+                    <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-slate-200">
+                      {playlist.tracks.length > 0
+                        ? `${conversionQuotaEstimate.totalUnits.toLocaleString()} units`
+                        : "Waiting"}
+                    </span>
+                  </div>
+                  {isSessionExpiringSoon && (
+                    <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs leading-5 text-amber-100">
+                      Your YouTube session is close to expiring. Swappify will refresh it automatically while creating
+                      the playlist.
+                    </div>
+                  )}
                   <div className="rounded-2xl border border-sky-400/20 bg-sky-400/10 p-3 text-xs leading-5 text-sky-100">
                     {loadingState === "converting"
                       ? "Swappify is creating your playlist and matching each track on YouTube."
@@ -344,16 +371,28 @@ const Dashboard = () => {
                     <p>Owner: {playlist.ownerName}</p>
                     <p>{playlist.description || "No Spotify description provided."}</p>
                     <p>Found {playlist.tracks.length} tracks.</p>
+                    <p>
+                      Estimated YouTube quota usage: {conversionQuotaEstimate.totalUnits.toLocaleString()} /{" "}
+                      {YOUTUBE_DAILY_QUOTA_LIMIT.toLocaleString()} units.
+                    </p>
                   </div>
                 </div>
 
-                <button
-                  onClick={handleCreatePlaylist}
-                  disabled={loadingState !== null}
-                  className={`${buttonClassName} bg-sky-500 text-white hover:bg-sky-400`}
-                >
-                  {loadingState === "converting" ? "Creating YouTube playlist..." : "Create YT Playlist"}
-                </button>
+                <div className="space-y-3 lg:max-w-xs">
+                  {conversionQuotaEstimate.exceedsDailyQuota && (
+                    <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs leading-5 text-amber-100">
+                      This playlist may exceed the default 10,000-unit daily YouTube quota. Consider splitting it into
+                      smaller batches before converting.
+                    </div>
+                  )}
+                  <button
+                    onClick={handleCreatePlaylist}
+                    disabled={loadingState !== null}
+                    className={`${buttonClassName} w-full bg-sky-500 text-white hover:bg-sky-400`}
+                  >
+                    {loadingState === "converting" ? "Creating YouTube playlist..." : "Create YT Playlist"}
+                  </button>
+                </div>
               </div>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -445,6 +484,12 @@ const Dashboard = () => {
                     <div>
                       <h3 className="text-lg font-semibold text-white">Failed matches</h3>
                       <p className="mt-1 text-sm text-slate-400">Edit the track details below and retry only these songs.</p>
+                      {conversionResult.failedTracks.length > 0 && (
+                        <p className="mt-2 text-xs text-slate-500">
+                          Retrying the remaining tracks is estimated to use {retryQuotaEstimate.totalUnits.toLocaleString()}{" "}
+                          quota units.
+                        </p>
+                      )}
                     </div>
                     <button
                       onClick={handleRetryFailedTracks}

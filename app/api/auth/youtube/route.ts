@@ -4,6 +4,7 @@ import { google } from "googleapis";
 import { getErrorMessage } from "@/app/lib/errors";
 import { logError } from "@/app/lib/logger";
 import { getGoogleOAuthConfig } from "@/app/lib/server-config";
+import { setYoutubeTokenCookie } from "@/app/lib/youtube-auth";
 
 export const runtime = "nodejs";
 
@@ -30,12 +31,7 @@ export async function GET(request: NextRequest) {
     oauth2Client.setCredentials(tokens);
 
     const response = NextResponse.redirect(hostedUrl);
-    response.cookies.set("youtube_token", JSON.stringify(tokens), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      sameSite: "lax",
-    });
+    setYoutubeTokenCookie(response, tokens);
 
     return response;
   } catch (error) {

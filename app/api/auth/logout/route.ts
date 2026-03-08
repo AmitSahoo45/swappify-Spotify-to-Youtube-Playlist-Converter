@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clearYoutubeTokenCookie } from "@/app/lib/youtube-auth";
 
 export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(request.nextUrl.origin);
-  response.cookies.set("youtube_token", "", {
-    httpOnly: true,
-    maxAge: 0,
-    path: "/",
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-  });
+  clearYoutubeTokenCookie(response);
   return response;
 }
